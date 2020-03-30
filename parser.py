@@ -62,30 +62,27 @@ def fetch_and_parse_html(topic):
     current_set = {}
     for question_index, current_fact in enumerate(facts):
       # FIXME: Is there a better way to duck type this?
-      if hasattr(current_fact, "select"):
-        # TODO: Should find a way to categorize here.
-        # TODO: Exclude dates.
-        # TODO: Exclude citations
-        # FIXME: This is very slow - should be a way to do this more concurrently.
-        try:
-          # FIXME: This is sloppy.
-          stripped_url = re.sub(r".+/wiki/", "", current_fact["href"]).replace("/wiki/", "").replace("(", " ").replace(")", " ").replace("_", " ").replace("  ", " ").casefold()
-          summary = wikipedia.summary(stripped_url, sentences = 2)
-          category = categorize(summary)
-          current_set[question_index] = {
-            "fact": current_fact.text,
-            "summary": summary,
-            "category": category 
-          }
-          fact_links[category].append((base_index, question_index))
-        except Exception as e:
-          print("There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + stripped_url)
-          print(e)
+      if not hasattr(current_fact, "select"):
+        continue
+      
+      try:
+        if not current_fact["title"]:
+          continue
+
+        title = current_fact["title"].casefold()
+        summary = wikipedia.summary(title, sentences = 2)
+        category = categorize(summary)
+        current_set[question_index] = {
+          "fact": current_fact.text,
+          "summary": summary,
+          "category": category 
+        }
+        fact_links[category].append((base_index, question_index))
+      except Exception as e:
+        print("There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + title)
+        print(e)
 
     fulltext_metadata.append(current_set)
-
-  print("### HTML FACTS")
-  print(html_facts)
 
   fact_links_file = open(topic + "_fact_links.json", "w")
   fact_links_file.truncate(0)
@@ -117,22 +114,24 @@ def categorize(summary):
       " town "
     ],
     "band": [
-      " band ",
-      " artist ",
-      " group ",
+      " band",
+      " artist",
+      " group",
       " duo "
     ],
     "album": [
-      " album ",
-      " compilation "
+      " album",
+      " compilation"
     ],
     "event": [
-      " event ",
-      " festival ",
-      " tour ",
+      " event",
+      " festival",
+      " tour",
+      " protest",
+      " occurred"
     ],
     "genre": [
-      " genre "
+      "genre"
     ],
     "person": [
       " woman ",
@@ -142,15 +141,19 @@ def categorize(summary):
       " his ",
       " she ",
       " they ",
-      " singer ",
-      " actress ",
-      " singer-songwriter ",
-      " activist ",
-      " bassist ",
-      " guitarist ",
-      " musician ",
-      " director ",
-      " writer ",
+      " singer",
+      " actress",
+      " songwriter",
+      " activist",
+      " bassist",
+      " guitarist",
+      " musician",
+      " director",
+      " writer",
+      " composer",
+      " dancer",
+      "husband ",
+      "wife ",
     ],
     "date": [
       "january ",
@@ -174,12 +177,23 @@ def categorize(summary):
       "sunday "
     ]
   }
+
+  scores = {}
   for category in categories:
-    for value in categories[category]:
-      # TODO: Some kind of weighting?
-      if summary.casefold().find(value) > -1:
-        return category
-  return "uncategorized"
+    scores[category] = 0
+
+  for sentence in summary.split("."):
+    for category in categories:
+      for value in categories[category]:
+        if sentence.casefold().find(value) > -1:
+          scores[category] += 1
+
+  highestScore = { "category": "uncategorized", "score": 0 }
+  for category in scores:
+    if highestScore["score"] < scores[category]:
+      highestScore = { "category": category, "score": scores[category] }
+
+  return highestScore["category"]
 
 def files_exist_and_have_data(topic):
   if (os.path.exists(topic + "_page.html") == False or 
@@ -207,30 +221,40 @@ def main(topic):
     fact_links = new_data["fact_links"]
     fulltext_metadata = new_data["fulltext_metadata"]
 
-  # Substitute a random link in the writeup for empty spaces.
-  question_number = random.randint(0, len(html_facts)-1)
-  question = html_facts[question_number]
-
-
   # Ensure that the answer exists in the questions - when the lookup fails
   # there's the possibility of a link not containing a fact
   is_valid_fact = False
   while not is_valid_fact:
+    question_number = random.randint(0, len(html_facts)-1)
+    question = html_facts[question_number]
     answer_fact_number = random.randint(0, len(question.select("a"))-1)
-    print(fulltext_metadata[question_number])
-    if str(answer_fact_number*2) in fulltext_metadata[question_number]:
-      is_valid_fact = True
+    
+    if not str(answer_fact_number*2) in fulltext_metadata[question_number]:
+      continue
 
-  answer_fact_category = fulltext_metadata[question_number][str(answer_fact_number*2)]["category"]
-  false_answers = []
-  for _ in range(4):
-    location = random.choice(fact_links[answer_fact_category])
-    false_answers.append(fulltext_metadata[location[0]][str(location[1])]["fact"])
+    # Do not let the blank be a date as it does not work well.
+    answer_fact_category = fulltext_metadata[question_number][str(answer_fact_number*2)]["category"]
+    if answer_fact_category == "date" and answer_fact_number == 0:
+      continue
+
+    is_valid_fact = True
   
+  answer_dictionary = fulltext_metadata[question_number][str(answer_fact_number*2)]
+  possible_answers = [answer_dictionary["fact"]]
+
+  while len(possible_answers) < 4 or len(possible_answers) == len(fact_links[answer_fact_category]) - 1:
+    location = random.choice(fact_links[answer_fact_category])
+    possible_answer = fulltext_metadata[location[0]][str(location[1])]["fact"]
+
+    if not possible_answer in possible_answers:
+      possible_answers.append(possible_answer)
+
   question.select("a")[answer_fact_number].replace_with("_________________")
 
+  random.shuffle(possible_answers)
+
   print(question.text)
-  print("ANSWER IS " + str(fulltext_metadata[question_number][str(answer_fact_number*2)]))
-  print("### FALSE ANSWERS: " + str(false_answers))
+  # print("ANSWER IS " + str(answer_dictionary["fact"]))
+  print(str(possible_answers))
 
 main(sys.argv[1].replace(" ", "_"))

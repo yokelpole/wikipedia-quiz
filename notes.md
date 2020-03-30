@@ -15,7 +15,7 @@
     - Using BeautifulSoup 4
 
 ## TODO:
-  [] Categorize names, albums, places, and events.
+  [x] Categorize names, albums, places, and events.
     - Categorization could solve for problem with picking weird links. If something does not have multiple entries then don't show it.
       - Wikipedia's categories don't appear to be very helpful for this...
       - For the "Events" section there seem to be the following:
@@ -41,5 +41,4 @@
       - Separate category dictionary might be helpful - defines where in the `fact_links` category answers of the same category are defined.
         - Fact links: { "place": [( music_fact_number, array_pos )], "person: [(music_fact_number, array_pos)]}
   [] Allow the user to guess?
-  [] Don't select links that are to references and dates at the start of the sentence.
-  [] 
+  [x] Don't select links that are to references and dates at the start of the sentence.
