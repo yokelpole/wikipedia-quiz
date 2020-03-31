@@ -70,13 +70,16 @@ def fetch_and_parse_html(topic):
           continue
 
         title = current_fact["title"].casefold()
-        summary = wikipedia.summary(title, sentences = 2)
+        summary = wikipedia.summary(title, sentences = 3)
         category = categorize(summary)
         current_set[question_index] = {
           "fact": current_fact.text,
           "summary": summary,
           "category": category 
         }
+        fact_data_file = open("./data/" + category + "/" + title + "_fact_data.txt", "w")
+        fact_data_file.truncate(0)
+        fact_data_file.write(summary)
         fact_links[category].append((base_index, question_index))
       except Exception as e:
         print("There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + title)
