@@ -45,7 +45,7 @@ def get_and_save_html(topic):
   return parsed_html
 
 def get_facts_and_metadata_from_html(html, topic, start_header_text):
-  nlp = spacy.load("en_core_web_md")
+  nlp = spacy.load("en_core_web_lg")
 
   html_facts = get_html_facts(html, start_header_text)
 
@@ -154,11 +154,17 @@ def main(topic, start_header_text = "Events"):
     if answer_fact_category == "DATE" and answer_fact_number == 0:
       continue
 
+    # TODO: Make the # of questions for a topic customizable
+    if len(fact_links[answer_fact_category]) <= 4:
+      continue
+
     is_valid_fact = True
   
   answer_dictionary = fulltext_metadata[question_number][answer_fact_number]
   possible_answers = [answer_dictionary["fact"]]
 
+  # FIXME: This is the cause of the freezes that happen sometimes.
+  # Might need a qualifier for the initial question to ensure there are enough answers.
   while len(possible_answers) < 4 or len(possible_answers) == len(fact_links[answer_fact_category]) - 1:
     location = random.choice(fact_links[answer_fact_category])
     possible_answer = fulltext_metadata[location[0]][int(location[1])]["fact"]
