@@ -16,7 +16,7 @@ if len(sys.argv) < 3:
   print("Not enough parameters specified.\n Intended use: 'parser.py [topic] [header_text]'")
 
 topic = sys.argv[1].replace(" ", "_")
-start_header_text = sys.argv[2]
+section = sys.argv[2]
 
 def get_and_save_html(topic):
   # TODO: We should save the output of the HTML as well to ensure it syncs up
@@ -55,7 +55,7 @@ def lemmatizer(X):
         documents.append(document)
     return documents
 
-def get_facts_and_metadata_from_html(html, topic, start_header_text):
+def get_facts_and_metadata_from_html(html, topic, section):
   classifier = pickle.load(open("trained_model.pickle", "rb"))
   classifier_data = pickle.load(open("trained_model_data.pickle", "rb"))  
 
@@ -64,9 +64,7 @@ def get_facts_and_metadata_from_html(html, topic, start_header_text):
   tfidfconverter = TfidfTransformer()
   tfidfconverter.fit_transform(X)
 
-  html_facts = get_html_facts(html, start_header_text)
-
-  # TODO: Does this need to go?
+  html_facts = get_html_facts(html, section)
   fact_links = {}
   fulltext_metadata = []
 
@@ -114,16 +112,20 @@ def get_facts_and_metadata_from_html(html, topic, start_header_text):
 
     fulltext_metadata.append(current_set)
 
-  fact_links_file = open("quiz_content/" + topic + "_" + start_header_text + "_fact_links.json", "w")
+  fact_links_file = open("quiz_content/" + topic + "_" + section + "_fact_links.json", "w")
   fact_links_file.truncate(0)
   fact_links_file.write(json.dumps(fact_links))
   fact_links_file.close()
 
-  fulltext_metadata_file = open("quiz_content/" + topic + "_" + start_header_text + "_fulltext_metadata.json", "w")
+  fulltext_metadata_file = open("quiz_content/" + topic + "_" + section + "_fulltext_metadata.json", "w")
   fulltext_metadata_file.truncate(0)
-  fulltext_metadata_file.write(json.dumps(fulltext_metadata))
+  fulltext_metadata_file.write(json.dumps({
+    "topic": topic,
+    "section": section, 
+    "facts": fulltext_metadata
+  }))
   fulltext_metadata_file.close()
 
 html = get_and_save_html(topic)
-get_facts_and_metadata_from_html(html, topic, start_header_text) 
+get_facts_and_metadata_from_html(html, topic, section) 
 print("### Successfully saved quiz data")
