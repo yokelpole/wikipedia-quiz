@@ -1,3 +1,6 @@
+from nltk.stem import WordNetLemmatizer
+import re
+
 def get_html_facts(html, start_header_text):
   # On the music summary pages this will grab the "events"
   # that happened for a given year.

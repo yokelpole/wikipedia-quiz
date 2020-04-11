@@ -2,7 +2,6 @@ import sys
 import pickle
 import json
 import wikipedia
-import re
 
 from shared import get_html_facts, lemmatizer
 from urllib import request
@@ -10,7 +9,6 @@ from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
 
 if len(sys.argv) < 3:
   print("Not enough parameters specified.\n Intended use: 'parser.py [topic] [header_text]'")

@@ -1,11 +1,9 @@
 import numpy as np 
-import re
 import nltk
 from sklearn.datasets import load_files
 import pickle
 from nltk.corpus import stopwords
 import wikipedia
-from nltk.stem import WordNetLemmatizer
 from shared import lemmatizer
 
 data = load_files("data")
