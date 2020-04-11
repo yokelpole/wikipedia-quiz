@@ -4,7 +4,7 @@ import json
 import wikipedia
 import re
 
-from shared import get_html_facts
+from shared import get_html_facts, lemmatizer
 from urllib import request
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import CountVectorizer
@@ -32,35 +32,14 @@ def get_and_save_html(topic):
 
   return parsed_html
 
-def lemmatizer(X):
-    stemmer = WordNetLemmatizer()
-    documents = []
-    for sen in range(0, len(X)):
-        # Remove all the special characters
-        document = re.sub(r'\W', ' ', str(X[sen]))
-        # remove all single characters
-        document = re.sub(r'\s+[a-zA-Z]\s+', ' ', document)
-        # Remove single characters from the start
-        document = re.sub(r'\^[a-zA-Z]\s+', ' ', document) 
-        # Substituting multiple spaces with single space
-        document = re.sub(r'\s+', ' ', document, flags=re.I)
-        # Removing prefixed 'b'
-        document = re.sub(r'^b\s+', '', document)
-        # Converting to Lowercase
-        document = document.lower()
-        # Lemmatization
-        document = document.split()
-        document = [stemmer.lemmatize(word) for word in document]
-        document = ' '.join(document)
-        documents.append(document)
-    return documents
-
 def get_facts_and_metadata_from_html(html, topic, section):
   classifier = pickle.load(open("trained_model.pickle", "rb"))
   classifier_data = pickle.load(open("trained_model_data.pickle", "rb"))  
 
-  vectorizer = CountVectorizer(max_features=400, stop_words=stopwords.words('english'))
-  X = vectorizer.fit_transform(lemmatizer(classifier_data.data))
+  from sklearn.feature_extraction.text import TfidfVectorizer
+  vectorizer = TfidfVectorizer (min_df=7, max_df=0.8, stop_words=stopwords.words('english'))
+  X = vectorizer.fit_transform(lemmatizer(classifier_data.data)).toarray()
+
   tfidfconverter = TfidfTransformer()
   tfidfconverter.fit_transform(X)
 
@@ -70,17 +49,24 @@ def get_facts_and_metadata_from_html(html, topic, section):
 
   for base_index, facts in enumerate(html_facts):
     current_set = []
-    for question_index, current_fact in enumerate(facts):
+    for current_fact in facts:
       # FIXME: Is there a better way to duck type this?
-      if not hasattr(current_fact, "select"):
+      if not hasattr(current_fact, "select") or not current_fact.get("title", False):
         continue
       
-      try:
-        if not current_fact["title"]:
-          continue
+      if current_fact.get("title", False):
+        title = current_fact.get("title")
+      else:
+        title = current_fact.find_all(title=True)[0].get("title") 
 
-        title = current_fact["title"].casefold()
-        summary = wikipedia.summary(title, sentences = 3)
+      try:
+        print("### CURRENT FACT:")
+        print(current_fact)
+
+        title = current_fact.get("title") or current_fact.find_all(title=True)[0]["title"]
+        print(title)
+        print("### TITLE: " + title)
+        summary = wikipedia.summary(title, sentences = 3, auto_suggest=False)
 
         # Transform the string data into machine learning friendly format
         new_X = vectorizer.transform(lemmatizer([summary])).toarray()
@@ -107,8 +93,11 @@ def get_facts_and_metadata_from_html(html, topic, section):
         fact_links[category].append((base_index, len(current_set)-1))
       except Exception as e:
         current_set.append(False)
-        print("There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + title)
+        print("### ERROR: There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + title)
+        print(current_fact)
         print(e)
+        print(type(e))
+        print(e.args)
 
     fulltext_metadata.append(current_set)
 
