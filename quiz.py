@@ -80,6 +80,10 @@ def ask_question(topic = None, section = None):
     question_number = random.randint(0, len(html_facts)-1)
     question = html_facts[question_number]
     answer_fact_number = random.randint(0, len(question.select("a"))-1)
+    # FIXME: 
+    #  File "quiz.py", line 83, in ask_question
+    #      fact_metadata = facts_metadata[question_number][answer_fact_number]
+    #  IndexError: list index out of range
     fact_metadata = facts_metadata[question_number][answer_fact_number]
 
     if int(answer_fact_number) >= len(facts_metadata[question_number]):
