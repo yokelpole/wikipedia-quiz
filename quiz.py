@@ -48,7 +48,7 @@ def get_valid_categories(facts, facts_metadata):
 
   return valid_categories
 
-def ask_question(topic = None, section = None):
+def get_question_and_answers(topic, section):
   if topic == None and section == None:
     metadata_filename = random.choice(metadata_files)
     fulltext_metadata = json.loads(open("quiz_content/" + metadata_filename, "r").read())
@@ -79,11 +79,11 @@ def ask_question(topic = None, section = None):
   while not is_valid_fact:
     question_number = random.randint(0, len(html_facts)-1)
     question = html_facts[question_number]
-    answer_fact_number = random.randint(0, len(question.select("a"))-1)
-    # FIXME: 
-    #  File "quiz.py", line 83, in ask_question
-    #      fact_metadata = facts_metadata[question_number][answer_fact_number]
-    #  IndexError: list index out of range
+    answer_fact_number = random.randint(0, len(question.select("a[title]"))-1)
+    # This is a hack to get around when certain answers have been dropped.
+    if answer_fact_number >= len(facts_metadata[question_number]):
+      answer_fact_number = len(facts_metadata[question_number]) - 1 
+
     fact_metadata = facts_metadata[question_number][answer_fact_number]
 
     if int(answer_fact_number) >= len(facts_metadata[question_number]):
@@ -99,9 +99,9 @@ def ask_question(topic = None, section = None):
   
   answer_fact_category = fact_metadata["category"]
   answer_dictionary = facts_metadata[question_number][answer_fact_number]
-  possible_answers = [answer_dictionary["fact"]]
+  answers = [answer_dictionary["fact"]]
 
-  while len(possible_answers) < NUMBER_OF_ANSWERS or len(possible_answers) == len(fact_links[answer_fact_category]) - 1:
+  while len(answers) < NUMBER_OF_ANSWERS or len(answers) == len(fact_links[answer_fact_category]) - 1:
     location = random.choice(fact_links[answer_fact_category])
     fact_metadata = facts_metadata[location[0]][int(location[1])]
     possible_answer = fact_metadata["fact"]
@@ -109,31 +109,47 @@ def ask_question(topic = None, section = None):
     if fact_metadata["confidence"] < CONFIDENCE_LEVEL:
       continue
 
-    if not possible_answer in possible_answers:
-      possible_answers.append(possible_answer)
+    if not possible_answer in answers:
+      answers.append(possible_answer)
 
   question.select("a")[int(answer_fact_number)].replace_with("_________________")
 
-  random.shuffle(possible_answers)
+  random.shuffle(answers)
+
+  return {
+    "answers": answers,
+    "correct_answer": answer_dictionary["fact"],
+    "topic": topic,
+    "section": section,
+    "question": question
+  }
+
+def ask_question(topic = None, section = None):
+  question_and_answers_dict = get_question_and_answers(topic, section)
+  question = question_and_answers_dict["question"]
+  answers = question_and_answers_dict["answers"]
+  correct_answer = question_and_answers_dict["correct_answer"]
+  topic = question_and_answers_dict["topic"]
+  section = question_and_answers_dict["section"]
 
   print("TOPIC: " + topic.replace("_", " "))
   print("CATEGORY: " + section.replace("_", " "))
   print(question.text)
   user_answer = ""
 
-  for i, value in enumerate(possible_answers):
+  for i, value in enumerate(answers):
     print(i + 1, ": " + value)
 
   # FIXME: Make this work with NUMBER_OF_ANSWERS
   while user_answer != "1" and user_answer != "2" and user_answer != "3" and user_answer != "4":
     user_answer = input("[1,2,3, or 4]: ").lower()
   
-  if possible_answers[int(user_answer)-1] == answer_dictionary["fact"]:
+  if answers[int(user_answer)-1] == correct_answer:
     print("Correct! 🙋\n\n")
     return True
   else:
     print("Wrong. 😓")
-    print("The correct answer is: " + answer_dictionary["fact"] + "\n\n")
+    print("The correct answer is: " + correct_answer + "\n\n")
     return False
 
 # Cycle through the available quiz data and ask a question
