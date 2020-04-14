@@ -48,8 +48,10 @@ def get_valid_categories(facts, facts_metadata):
 
   return valid_categories
 
-def get_question_and_answers(topic, section):
+def get_question_and_answers(topic = None, section = None):
   if topic == None and section == None:
+    # Cycle through the available quiz data and ask a question
+    metadata_files = list(filter(lambda x: x.find("fulltext_metadata.json") != -1, os.listdir("quiz_content")))
     metadata_filename = random.choice(metadata_files)
     fulltext_metadata = json.loads(open("quiz_content/" + metadata_filename, "r").read())
     topic = fulltext_metadata["topic"]
@@ -121,7 +123,7 @@ def get_question_and_answers(topic, section):
     "correct_answer": answer_dictionary["fact"],
     "topic": topic,
     "section": section,
-    "question": question
+    "question": question.text
   }
 
 def ask_question(topic = None, section = None):
@@ -134,7 +136,7 @@ def ask_question(topic = None, section = None):
 
   print("TOPIC: " + topic.replace("_", " "))
   print("CATEGORY: " + section.replace("_", " "))
-  print(question.text)
+  print(question)
   user_answer = ""
 
   for i, value in enumerate(answers):
@@ -152,18 +154,17 @@ def ask_question(topic = None, section = None):
     print("The correct answer is: " + correct_answer + "\n\n")
     return False
 
-# Cycle through the available quiz data and ask a question
-metadata_files = list(filter(lambda x: x.find("fulltext_metadata.json") != -1, os.listdir("quiz_content")))
-asked = 0
-correct = 0
+if __name__ == "__main__":        
+  asked = 0
+  correct = 0
 
-if len(sys.argv) >= 3:
-  ask_question(sys.argv[1].replace(" ", "_"), sys.argv[2])
-else:
-  while asked < 5:
-    if ask_question():
-      correct += 1
-    asked += 1 
-  print("You got " + str(correct) + " questions right.")
+  if len(sys.argv) >= 3:
+    ask_question(sys.argv[1].replace(" ", "_"), sys.argv[2])
+  else:
+    while asked < 5:
+      if ask_question():
+        correct += 1
+      asked += 1 
+    print("You got " + str(correct) + " questions right.")
 
-print("### GAME OVER")
+  print("### GAME OVER")
