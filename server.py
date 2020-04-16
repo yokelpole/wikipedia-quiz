@@ -23,19 +23,24 @@ update_question_timer()
 def base():
   return static_file("page.html", "./")
 
-@app.route("/get_new_question")
-def get_question():
+@app.route("/get_current_question")
+def get_current_question():
   global active_question
   response.content_type = "text/json; charset=UTF-8"
   return active_question
 
-@app.route("/get_current_question")
-def get_current_question():
-
-  return active_question
-
 @app.route("/answer_question", method="POST")
 def answer_question():
+  try:
+    json = request.json
+  except:
+    raise ValueError 
+
+  for user in active_users:
+    print(json)
+    print(user)
+    if user["name"] == json["name"] and json["correct"] == True:
+      user["score"] += 1
   return active_question
 
 @app.route("/get_players")
@@ -55,8 +60,9 @@ def join_game():
 
   user_id = 123
   active_users.append({
-    "name": json['name'],
+    "name": json["name"],
     "ID": user_id,
+    "score": 0,
   })
   return { "ID": user_id }
 

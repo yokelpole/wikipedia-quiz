@@ -7,9 +7,9 @@
       <h1>THE GREAT WIKIPEDIA QUIZ</h1>
     </center>
     <div id="loading">
-      <p id ="loading">
-        Hold on while we load the question and get you in the game
-      </p>
+      <p>What is your name?</p>
+      <input id="nameInput" onsubmit=onSubmitNameClick() type="text"/>
+      <button id="nameSubmit" onclick=onSubmitNameClick()>Submit</button>
     </div>
     <div id="playArea" hidden>
       <h2 id="topic">TOPIC FILLER</h3>
@@ -34,9 +34,13 @@
   const loadingElement = document.getElementById("loading");
   const playAreaElement = document.getElementById("playArea");
 
+  const nameInput = document.getElementById("nameInput");
+  const nameSubmit = document.getElementById("nameSubmit");
+
   const topicElement = document.getElementById("topic");
   const subtopicElement = document.getElementById("subtopic");
   const questionElement = document.getElementById("question");
+  const scoreboardElement = document.getElementById("scoreboard");
 
   const buttonElements = [
     document.getElementById("button0"),
@@ -49,12 +53,40 @@
   const wrongElement = document.getElementById("wrong");
 
   let correctAnswer;
+  let playerName;
 
   function onButtonClick(buttonNumber) {
     if (correctAnswer === buttonNumber) correctElement.removeAttribute("hidden")
     else wrongElement.removeAttribute("hidden");
 
-    buttonElements.forEach(button => button.setAttribute("disabled", "true"))
+    buttonElements.forEach(button => button.setAttribute("disabled", "true"));
+
+    fetch("http://localhost:8080/answer_question", {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      // FIXME: really shouldn't trust the client to say the answer is right...
+      body: JSON.stringify({ 
+        name: playerName,
+        correct: correctAnswer === buttonNumber, 
+      })
+    }); 
+  }
+
+  async function onSubmitNameClick() {
+    const playerResp = await fetch("http://localhost:8080/join_game", {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: nameInput.value })
+    });
+    loadingElement.setAttribute("hidden", "true");
+    playArea.removeAttribute("hidden");
+    playerName = nameInput.value;
   }
 
   function setQuestion(json) {
@@ -63,6 +95,20 @@
     questionElement.innerText = json.question;
 
     buttonElements.forEach((button, i) => button.innerText = json.answers[i]);
+    json.answers.forEach((answer, i) => {
+      if (answer === json.correct_answer) correctAnswer = i;
+    });
+  }
+
+  async function updateScoreboard() {
+    const playersResp = await fetch("http://localhost:8080/get_players");
+    const playerJson = await playersResp.json();
+    scoreboardElement.innerHTML = "";
+    playerJson.players.forEach(player => {
+      const element = document.createElement("p");
+      element.innerText = player.name + " " + player.score;
+      scoreboardElement.appendChild(element);
+    })
   }
 
   function refreshBoard() {
@@ -72,37 +118,20 @@
   }
 
   async function setup() {
-    // TODO: Allow the player to answer questions    
-    const playerResp = await fetch("http://localhost:8080/join_game", {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({a: 1, b: 'Textual content'})
-    });
-
-    const questionResp = await fetch("http://localhost:8080/get_new_question");
+    const questionResp = await fetch("http://localhost:8080/get_current_question");
     let json = await questionResp.json();
-    console.log(json);
-
-    loadingElement.setAttribute("hidden", "true");
-    playArea.removeAttribute("hidden");
-
-    json.answers.forEach((answer, i) => {
-      if (answer === json.correct_answer) correctAnswer = i;
-    });
-
     setQuestion(json);
+    updateScoreboard();
 
     setInterval(async () => {
-      const questionResp = await fetch("http://localhost:8080/get_new_question");
+      const questionResp = await fetch("http://localhost:8080/get_current_question");
       const newJson = await questionResp.json();
       console.log(json);
       console.log(newJson);
       if (json.question !== newJson.question) {
         json = newJson;
         refreshBoard();
+        updateScoreboard();
         setQuestion(json);
       }
     }, 1000)
