@@ -1,0 +1,112 @@
+<html>
+  <head>
+    <title>The crappy wikipedia quiz</title>
+  </head>
+  <body>
+    <center>
+      <h1>THE GREAT WIKIPEDIA QUIZ</h1>
+    </center>
+    <div id="loading">
+      <p id ="loading">
+        Hold on while we load the question and get you in the game
+      </p>
+    </div>
+    <div id="playArea" hidden>
+      <h2 id="topic">TOPIC FILLER</h3>
+      <h3 id="subtopic">SUBTOPIC FILLER</h3>
+      <p id="question">QUESTION FILLER</p>
+      <button id="button0" onclick=onButtonClick(0)>BUTTON 1</button>
+      <button id="button1" onclick=onButtonClick(1)>BUTTON 2</button>
+      <button id="button2" onclick=onButtonClick(2)>BUTTON 3</button>
+      <button id="button3" onclick=onButtonClick(3)>BUTTON 4</button>
+      <div id="answerArea">
+        <h2 id="correct" hidden>CORRECT!</h2>
+        <h2 id="wrong" hidden>WRONG!</h2>
+      </div>
+      <div id="scoreboard">
+        
+      </div>
+    </div>
+  </body>
+</html>
+
+<script>
+  const loadingElement = document.getElementById("loading");
+  const playAreaElement = document.getElementById("playArea");
+
+  const topicElement = document.getElementById("topic");
+  const subtopicElement = document.getElementById("subtopic");
+  const questionElement = document.getElementById("question");
+
+  const buttonElements = [
+    document.getElementById("button0"),
+    document.getElementById("button1"),
+    document.getElementById("button2"),
+    document.getElementById("button3"),
+  ];
+
+  const correctElement = document.getElementById("correct");
+  const wrongElement = document.getElementById("wrong");
+
+  let correctAnswer;
+
+  function onButtonClick(buttonNumber) {
+    if (correctAnswer === buttonNumber) correctElement.removeAttribute("hidden")
+    else wrongElement.removeAttribute("hidden");
+
+    buttonElements.forEach(button => button.setAttribute("disabled", "true"))
+  }
+
+  function setQuestion(json) {
+    topicElement.innerText = json.topic.replace(/_/g, " ");
+    subtopicElement.innerText = json.section.replace(/_/g, " ");
+    questionElement.innerText = json.question;
+
+    buttonElements.forEach((button, i) => button.innerText = json.answers[i]);
+  }
+
+  function refreshBoard() {
+    correctElement.setAttribute("hidden", "true");
+    wrongElement.setAttribute("hidden", "true");
+    buttonElements.forEach((button, i) => button.removeAttribute("disabled"));
+  }
+
+  async function setup() {
+    // TODO: Allow the player to answer questions    
+    const playerResp = await fetch("http://localhost:8080/join_game", {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({a: 1, b: 'Textual content'})
+    });
+
+    const questionResp = await fetch("http://localhost:8080/get_new_question");
+    let json = await questionResp.json();
+    console.log(json);
+
+    loadingElement.setAttribute("hidden", "true");
+    playArea.removeAttribute("hidden");
+
+    json.answers.forEach((answer, i) => {
+      if (answer === json.correct_answer) correctAnswer = i;
+    });
+
+    setQuestion(json);
+
+    setInterval(async () => {
+      const questionResp = await fetch("http://localhost:8080/get_new_question");
+      const newJson = await questionResp.json();
+      console.log(json);
+      console.log(newJson);
+      if (json.question !== newJson.question) {
+        json = newJson;
+        refreshBoard();
+        setQuestion(json);
+      }
+    }, 1000)
+  }
+
+  setup();
+</script>
