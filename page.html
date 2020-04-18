@@ -23,6 +23,9 @@
         <h2 id="correct" hidden>CORRECT!</h2>
         <h2 id="wrong" hidden>WRONG!</h2>
       </div>
+      <div id="countdown">
+        <h5>10</h5>
+      </div>
       <div id="scoreboard">
         
       </div>
@@ -41,6 +44,7 @@
   const subtopicElement = document.getElementById("subtopic");
   const questionElement = document.getElementById("question");
   const scoreboardElement = document.getElementById("scoreboard");
+  const countdownElement = document.getElementById("countdown");
 
   const buttonElements = [
     document.getElementById("button0"),
@@ -54,6 +58,7 @@
 
   let correctAnswer;
   let playerName;
+  let countdownValue;
 
   function onButtonClick(buttonNumber) {
     if (correctAnswer === buttonNumber) correctElement.removeAttribute("hidden")
@@ -117,24 +122,47 @@
     buttonElements.forEach((button, i) => button.removeAttribute("disabled"));
   }
 
-  async function setup() {
+  function startCountdownTimer() {
+    setInterval(() => {
+      countdownValue = countdownValue - 1;
+      countdownElement.innerText = countdownValue;
+    }, 1000);
+  }
+
+  async function getQuestionData() {
     const questionResp = await fetch("http://localhost:8080/get_current_question");
-    let json = await questionResp.json();
+    const json = await questionResp.json();
+    const activeQuestionStartTime = new Date(json["active_question_start_time"]);
+    const questionTime = json["question_time"];
+    const currentTime = new Date(new Date().toLocaleString("en-US", {timeZone: "UTC"}))
+    activeQuestionStartTime.setSeconds(
+      activeQuestionStartTime.getSeconds() + questionTime
+    );
+
+    return {
+      json,
+      currentTime,
+      activeQuestionStartTime,
+    };
+  }
+
+  function fetchNextQuestion(time) {
+    setTimeout(async () => {
+      const { json, activeQuestionStartTime, currentTime } = await getQuestionData();
+      refreshBoard();
+      updateScoreboard();
+      countdownValue = json.question_time;
+      setQuestion(json);
+      fetchNextQuestion(activeQuestionStartTime.getTime() - currentTime.getTime())
+    }, time)
+  }
+
+  async function setup() {
+    const { json, activeQuestionStartTime, currentTime } = await getQuestionData();
+    startCountdownTimer(activeQuestionStartTime, currentTime);
     setQuestion(json);
     updateScoreboard();
-
-    setInterval(async () => {
-      const questionResp = await fetch("http://localhost:8080/get_current_question");
-      const newJson = await questionResp.json();
-      console.log(json);
-      console.log(newJson);
-      if (json.question !== newJson.question) {
-        json = newJson;
-        refreshBoard();
-        updateScoreboard();
-        setQuestion(json);
-      }
-    }, 1000)
+    fetchNextQuestion(activeQuestionStartTime.getTime() - currentTime.getTime());
   }
 
   setup();

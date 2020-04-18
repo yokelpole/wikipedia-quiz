@@ -1,21 +1,24 @@
 from quiz import get_question_and_answers
 from bottle import Bottle, response, request, route, run, static_file
 
-import time, threading
+import time, datetime, threading
 import json
 
 HOSTNAME = "localhost"
 PORT = 8080
+QUESTION_TIME = 10
 
 active_users = []
 active_question = None
+active_question_start_time = None
 
 app = Bottle()
 
 def update_question_timer():
-  global active_question
+  global active_question, active_question_start_time
   active_question = get_question_and_answers()
-  threading.Timer(10, update_question_timer).start()
+  active_question_start_time = datetime.datetime.utcnow()
+  threading.Timer(QUESTION_TIME, update_question_timer).start()
 
 update_question_timer()
 
@@ -25,9 +28,13 @@ def base():
 
 @app.route("/get_current_question")
 def get_current_question():
-  global active_question
+  global active_question, active_question_start_time
   response.content_type = "text/json; charset=UTF-8"
-  return active_question
+  return {
+    **active_question,
+    "active_question_start_time": active_question_start_time.isoformat(),
+    "question_time": QUESTION_TIME,
+  }
 
 @app.route("/answer_question", method="POST")
 def answer_question():
