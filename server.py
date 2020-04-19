@@ -15,10 +15,14 @@ active_question_start_time = None
 app = Bottle()
 
 def update_question_timer():
+  print("### UPDATING QUESTION")
   global active_question, active_question_start_time
+  # Activate timer before fetching question in case get_questions_and_answers fails
+  # FIXME: Make it so get_questions_and_answers fails more gracefully
+  threading.Timer(QUESTION_TIME, update_question_timer).start()
+
   active_question = get_question_and_answers()
   active_question_start_time = datetime.datetime.utcnow()
-  threading.Timer(QUESTION_TIME, update_question_timer).start()
 
 update_question_timer()
 
@@ -34,6 +38,7 @@ def get_current_question():
     **active_question,
     "active_question_start_time": active_question_start_time.isoformat(),
     "question_time": QUESTION_TIME,
+    "players": active_users,
   }
 
 @app.route("/answer_question", method="POST")

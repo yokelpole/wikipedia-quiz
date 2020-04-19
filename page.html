@@ -21,7 +21,10 @@
       <button id="button3" onclick=onButtonClick(3)>BUTTON 4</button>
       <div id="answerArea">
         <h2 id="correct" hidden>CORRECT!</h2>
-        <h2 id="wrong" hidden>WRONG!</h2>
+        <div id="wrong" hidden>
+          <h2>WRONG!</h2>
+          <p id="wrongRightAnswer"></p>
+        </iv>
       </div>
       <div id="countdown">
         <h5>10</h5>
@@ -55,14 +58,19 @@
 
   const correctElement = document.getElementById("correct");
   const wrongElement = document.getElementById("wrong");
+  const wrongRightAnswerElement = document.getElementById("wrongRightAnswer")
 
   let correctAnswer;
+  let activeQuestion;
   let playerName;
   let countdownValue;
 
   function onButtonClick(buttonNumber) {
     if (correctAnswer === buttonNumber) correctElement.removeAttribute("hidden")
-    else wrongElement.removeAttribute("hidden");
+    else {
+      wrongElement.removeAttribute("hidden");
+      wrongRightAnswerElement.innerText = `The correct answer is: ${activeQuestion.correct_answer}`;
+    }
 
     buttonElements.forEach(button => button.setAttribute("disabled", "true"));
 
@@ -103,13 +111,17 @@
     json.answers.forEach((answer, i) => {
       if (answer === json.correct_answer) correctAnswer = i;
     });
+    activeQuestion = json;
   }
 
-  async function updateScoreboard() {
-    const playersResp = await fetch("http://localhost:8080/get_players");
-    const playerJson = await playersResp.json();
+  async function updateScoreboard(json) {
+    // const playersResp = await fetch("http://localhost:8080/get_players");
+    // const playerJson = await playersResp.json();
     scoreboardElement.innerHTML = "";
-    playerJson.players.forEach(player => {
+    
+    if (!json) return;
+    
+    json.players.forEach(player => {
       const element = document.createElement("p");
       element.innerText = player.name + " " + player.score;
       scoreboardElement.appendChild(element);
@@ -147,10 +159,11 @@
   }
 
   function fetchNextQuestion(time) {
+    // TODO: Add debounce for when server isn't updated quite yet or in an error condition.
     setTimeout(async () => {
       const { json, activeQuestionStartTime, currentTime } = await getQuestionData();
       refreshBoard();
-      updateScoreboard();
+      updateScoreboard(json);
       countdownValue = json.question_time;
       setQuestion(json);
       fetchNextQuestion(activeQuestionStartTime.getTime() - currentTime.getTime())
@@ -161,7 +174,7 @@
     const { json, activeQuestionStartTime, currentTime } = await getQuestionData();
     startCountdownTimer(activeQuestionStartTime, currentTime);
     setQuestion(json);
-    updateScoreboard();
+    updateScoreboard(json);
     fetchNextQuestion(activeQuestionStartTime.getTime() - currentTime.getTime());
   }
 
