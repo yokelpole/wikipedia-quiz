@@ -49,8 +49,6 @@ def answer_question():
     raise ValueError 
 
   for user in active_users:
-    print(json)
-    print(user)
     if user["name"] == json["name"] and json["correct"] == True:
       user["score"] += 1
   return active_question
@@ -58,7 +56,6 @@ def answer_question():
 @app.route("/get_players")
 def get_players():
   response.content_type = "text/json; charset=UTF-8"
-  print(active_users)
   return {
     "players": active_users
   }

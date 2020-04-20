@@ -3,76 +3,63 @@
     <title>The crappy wikipedia quiz</title>
   </head>
   <body>
-    <center>
-      <h1>THE GREAT WIKIPEDIA QUIZ</h1>
-    </center>
-    <div id="loading">
-      <p>What is your name?</p>
-      <input id="nameInput" onsubmit=onSubmitNameClick() type="text"/>
-      <button id="nameSubmit" onclick=onSubmitNameClick()>Submit</button>
-    </div>
-    <div id="playArea" hidden>
-      <h2 id="topic">TOPIC FILLER</h3>
-      <h3 id="subtopic">SUBTOPIC FILLER</h3>
-      <p id="question">QUESTION FILLER</p>
-      <button id="button0" onclick=onButtonClick(0)>BUTTON 1</button>
-      <button id="button1" onclick=onButtonClick(1)>BUTTON 2</button>
-      <button id="button2" onclick=onButtonClick(2)>BUTTON 3</button>
-      <button id="button3" onclick=onButtonClick(3)>BUTTON 4</button>
-      <div id="answerArea">
-        <h2 id="correct" hidden>CORRECT!</h2>
-        <div id="wrong" hidden>
-          <h2>WRONG!</h2>
-          <p id="wrongRightAnswer"></p>
-        </iv>
+    <div id="app">
+      <center>
+        <h1>THE GREAT WIKIPEDIA QUIZ</h1>
+      </center>
+      <div v-if="playerName === undefined">
+        <p>What is your name?</p>
+        <input id="nameInput" onsubmit=onSubmitNameClick() type="text"/>
+        <button id="nameSubmit" onclick=onSubmitNameClick()>Submit</button>
       </div>
-      <div id="countdown">
-        <h5>10</h5>
-      </div>
-      <div id="scoreboard">
-        
+      <div v-if="playerName">
+        <h2>{{ activeQuestion.topic }}</h3>
+        <h3>{{ activeQuestion.section }}</h3>
+        <p>{{ activeQuestion.question }}</p>
+        <div v-for="(val, index) in activeQuestion.answers">
+          <button v-on:click="submitAnswer(index)" :disabled="answer">
+            {{ val }}
+          </button>
+        </div>
+        <div>
+          <h2 v-if="correctAnswer === answer">CORRECT!</h2>
+          <div v-if="answer !== undefined && correctAnswer !== answer">
+            <h2>WRONG!</h2>
+            <p>The correct answer is {{ activeQuestion.correct_answer }}</p>
+          </iv>
+        </div>
+        <div>
+          <h5>{{ countdownValue }}</h5>
+        </div>
+        <ul v-for="player in players">
+          <li>{{ player.name  }}  {{ player.score }}</li>
+        </ul>
       </div>
     </div>
   </body>
 </html>
 
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script>
-  const loadingElement = document.getElementById("loading");
-  const playAreaElement = document.getElementById("playArea");
-
-  const nameInput = document.getElementById("nameInput");
-  const nameSubmit = document.getElementById("nameSubmit");
-
-  const topicElement = document.getElementById("topic");
-  const subtopicElement = document.getElementById("subtopic");
-  const questionElement = document.getElementById("question");
-  const scoreboardElement = document.getElementById("scoreboard");
-  const countdownElement = document.getElementById("countdown");
-
-  const buttonElements = [
-    document.getElementById("button0"),
-    document.getElementById("button1"),
-    document.getElementById("button2"),
-    document.getElementById("button3"),
-  ];
-
-  const correctElement = document.getElementById("correct");
-  const wrongElement = document.getElementById("wrong");
-  const wrongRightAnswerElement = document.getElementById("wrongRightAnswer")
-
-  let correctAnswer;
-  let activeQuestion;
-  let playerName;
-  let countdownValue;
-
-  function onButtonClick(buttonNumber) {
-    if (correctAnswer === buttonNumber) correctElement.removeAttribute("hidden")
-    else {
-      wrongElement.removeAttribute("hidden");
-      wrongRightAnswerElement.innerText = `The correct answer is: ${activeQuestion.correct_answer}`;
+  const app = new Vue({
+    el: "#app",
+    data: {
+      activeQuestion: {},
+      answer: undefined,
+      correctAnswer: undefined,
+      countdownValue: 0,
+      playerName: undefined,
+      players: [],
+    },
+    methods: {
+      submitAnswer,
     }
+  });
 
-    buttonElements.forEach(button => button.setAttribute("disabled", "true"));
+  function submitAnswer(buttonNumber) {
+    app.answer = buttonNumber;
+
+    console.log(app.answer + " " + app.correctAnswer);
 
     fetch("http://localhost:8080/answer_question", {
       method: 'POST',
@@ -82,8 +69,8 @@
       },
       // FIXME: really shouldn't trust the client to say the answer is right...
       body: JSON.stringify({ 
-        name: playerName,
-        correct: correctAnswer === buttonNumber, 
+        name: app.playerName,
+        correct: app.correctAnswer === app.answer, 
       })
     }); 
   }
@@ -97,48 +84,26 @@
       },
       body: JSON.stringify({ name: nameInput.value })
     });
-    loadingElement.setAttribute("hidden", "true");
-    playArea.removeAttribute("hidden");
-    playerName = nameInput.value;
+    app.playerName = nameInput.value;
   }
 
   function setQuestion(json) {
-    topicElement.innerText = json.topic.replace(/_/g, " ");
-    subtopicElement.innerText = json.section.replace(/_/g, " ");
-    questionElement.innerText = json.question;
-
-    buttonElements.forEach((button, i) => button.innerText = json.answers[i]);
+    app.answer = undefined;
     json.answers.forEach((answer, i) => {
-      if (answer === json.correct_answer) correctAnswer = i;
+      if (answer === json.correct_answer) app.correctAnswer = i;
     });
-    activeQuestion = json;
-  }
-
-  async function updateScoreboard(json) {
-    // const playersResp = await fetch("http://localhost:8080/get_players");
-    // const playerJson = await playersResp.json();
-    scoreboardElement.innerHTML = "";
-    
-    if (!json) return;
-    
-    json.players.forEach(player => {
-      const element = document.createElement("p");
-      element.innerText = player.name + " " + player.score;
-      scoreboardElement.appendChild(element);
-    })
-  }
-
-  function refreshBoard() {
-    correctElement.setAttribute("hidden", "true");
-    wrongElement.setAttribute("hidden", "true");
-    buttonElements.forEach((button, i) => button.removeAttribute("disabled"));
+    json.topic = json.topic.replace(/_/g, " ");
+    json.section = json.section.replace(/_/g, " ");
+    app.activeQuestion = json;
   }
 
   function startCountdownTimer() {
     setInterval(() => {
-      countdownValue = countdownValue - 1;
-      countdownElement.innerText = countdownValue;
-    }, 1000);
+      const newValue = parseFloat(app.countdownValue - 0.1).toFixed(1); 
+      if (newValue > 0) {
+        app.countdownValue = newValue;
+      }
+    }, 100);
   }
 
   async function getQuestionData() {
@@ -162,9 +127,8 @@
     // TODO: Add debounce for when server isn't updated quite yet or in an error condition.
     setTimeout(async () => {
       const { json, activeQuestionStartTime, currentTime } = await getQuestionData();
-      refreshBoard();
-      updateScoreboard(json);
-      countdownValue = json.question_time;
+      app.players = json.players;
+      app.countdownValue = json.question_time;
       setQuestion(json);
       fetchNextQuestion(activeQuestionStartTime.getTime() - currentTime.getTime())
     }, time)
@@ -172,9 +136,10 @@
 
   async function setup() {
     const { json, activeQuestionStartTime, currentTime } = await getQuestionData();
-    startCountdownTimer(activeQuestionStartTime, currentTime);
+    app.players = json.players;
+    app.countdownValue = (activeQuestionStartTime - currentTime) / 1000;
+    startCountdownTimer();
     setQuestion(json);
-    updateScoreboard(json);
     fetchNextQuestion(activeQuestionStartTime.getTime() - currentTime.getTime());
   }
 
