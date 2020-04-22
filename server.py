@@ -2,10 +2,11 @@ from quiz import get_question_and_answers
 from bottle import Bottle, response, request, route, run, static_file
 
 import time, datetime, threading
+import uuid
 import json
 
 HOSTNAME = "localhost"
-PORT = 8080
+PORT = 8090
 QUESTION_TIME = 10
 
 active_users = []
@@ -13,6 +14,26 @@ active_question = None
 active_question_start_time = None
 
 app = Bottle()
+
+class EnableCors(object):
+    name = 'enable_cors'
+    api = 2
+
+    def apply(self, fn, context):
+        def _enable_cors(*args, **kwargs):
+            # set CORS headers
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
+
+            if request.method != 'OPTIONS':
+                # actual request; reply with the actual response
+                return fn(*args, **kwargs)
+
+        return _enable_cors
+
+app.install(EnableCors())
+
 
 def update_question_timer():
   print("### UPDATING QUESTION")
@@ -26,10 +47,6 @@ def update_question_timer():
 
 update_question_timer()
 
-@app.route("/")
-def base():
-  return static_file("page.html", "./")
-
 @app.route("/get_current_question")
 def get_current_question():
   global active_question, active_question_start_time
@@ -41,7 +58,9 @@ def get_current_question():
     "players": active_users,
   }
 
-@app.route("/answer_question", method="POST")
+
+
+@app.route("/answer_question", method=["OPTIONS", "POST"])
 def answer_question():
   try:
     json = request.json
@@ -60,17 +79,17 @@ def get_players():
     "players": active_users
   }
 
-@app.route("/join_game", method="POST")
+@app.route("/join_game", method=["OPTIONS", "POST"])
 def join_game():
   try:
     json = request.json
   except:
     raise ValueError
 
-  user_id = 123
+  user_id = str(uuid.uuid4())
   active_users.append({
     "name": json["name"],
-    "ID": user_id,
+    "id": user_id,
     "score": 0,
   })
   return { "ID": user_id }
