@@ -81,6 +81,9 @@ def get_question_and_answers(topic = None, section = None):
   while not is_valid_fact:
     question_number = random.randint(0, len(html_facts)-1)
     question = html_facts[question_number]
+    if len(question.select("a[title]")) == 0:
+      continue
+
     answer_fact_number = random.randint(0, len(question.select("a[title]"))-1)
     # This is a hack to get around when certain answers have been dropped.
     if answer_fact_number >= len(facts_metadata[question_number]):
