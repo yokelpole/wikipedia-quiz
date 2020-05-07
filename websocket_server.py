@@ -17,7 +17,6 @@ connected = set()
 active_question = None
 active_question_finish_time = None
 
-
 def get_new_active_question_finish_time():
   return datetime.datetime.utcnow() + datetime.timedelta(0, QUESTION_TIME)
 
@@ -44,7 +43,7 @@ async def send_to_clients(message):
 
 
 async def update_question(websocket, path):
-  global active_question, active_question_finish_time
+  global active_question, active_question_finish_time, active_users
   active_question_finish_delta = active_question_finish_time - datetime.datetime.utcnow()
   if active_question_finish_delta.days != -1:
     seconds_delta = active_question_finish_delta.seconds
@@ -53,10 +52,13 @@ async def update_question(websocket, path):
   if datetime.datetime.utcnow() > active_question_finish_time:
     active_question = get_question_and_answers()
     active_question_finish_time = get_new_active_question_finish_time()
+    for _, value in active_users.items():
+      value["answered_correctly"] = None
     await send_to_clients(get_active_question_message())
+    await update_leaderboard()
 
 
-async def update_leaderboard(websocket, path):
+async def update_leaderboard():
   global active_users
   return await send_to_clients(json.dumps({
     "type": "leaderboard_updated",
@@ -78,13 +80,19 @@ async def consumer_handler(websocket, path):
     active_users[player_id] = {
       "name": recv_data["value"]["name"],
       "score": 0,
+      "answered_correctly": None,
     }
     
     await send_to_clients(json.dumps({
       "type": "player_registered",
-      "value": player_id,
+      "value": {
+        "player_id": player_id,
+        # This is probably insecure if somebody registers with the same name
+        # at the same time - but edge case for sure
+        "name": recv_data["value"]["name"]
+      },
     }))
-    await update_leaderboard(websocket, path)
+    await update_leaderboard()
   if recv_data["type"] == "player_answer":
     # only send correct answer to player
     await websocket.send(json.dumps({
@@ -92,12 +100,16 @@ async def consumer_handler(websocket, path):
       "value": active_question["correct_answer"]
     }))
 
-    if active_question["correct_answer"] == recv_data["value"]["answer"]:
-      active_users[recv_data["value"]["player_id"]]["score"] = \
-        active_users[recv_data["value"]["player_id"]]["score"] + 1 
-      await update_leaderboard(websocket, path)
+    targeted_user = active_users[recv_data["value"]["player_id"]]
 
-  
+    if active_question["correct_answer"] == recv_data["value"]["answer"]:
+      targeted_user["score"] = targeted_user["score"] + 1 
+      targeted_user["answered_correctly"] = True
+    else:
+      targeted_user["answered_correctly"] = False
+
+    await update_leaderboard()
+
 async def producer_handler(websocket, path):
   print("### PRODUCER STUFF HERE")
 
