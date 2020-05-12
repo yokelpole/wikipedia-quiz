@@ -49,13 +49,16 @@ def get_facts_and_metadata_from_html(html, topic, section):
     current_set = []
     for current_fact in facts:
       # FIXME: Is there a better way to duck type this?
-      if not hasattr(current_fact, "select") or not current_fact.get("title", False):
+      if not hasattr(current_fact, "select"):
         continue
-      
+
       if current_fact.get("title", False):
         title = current_fact.get("title")
       else:
-        title = current_fact.find_all(title=True)[0].get("title") 
+        if len(current_fact.select("a[title]")) == 0:
+          continue
+
+        title = current_fact.select("a[title]")[0].get("title") 
 
       try:
         print("### CURRENT FACT:")

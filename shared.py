@@ -14,8 +14,8 @@ def get_html_facts(html, start_header_text):
     if hasattr(element, "select") == False:
       element = element.next_element
       continue
-    if element.select("ul li"):
-      elements.extend(element.select("ul li"))
+    if element.select("li") and not element.select("li li"):
+      elements.extend(element.select("li"))
     element = element.next_element
 
   # Ensure that we have more than one anchor element - anything with less is
