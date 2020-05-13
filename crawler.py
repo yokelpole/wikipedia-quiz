@@ -71,7 +71,7 @@ def get_facts_and_metadata_from_html(html, topic, section):
 
       if category not in question_facts:
         question_facts[category] = {}
-      question_facts[category][current_fact.text] = data
+      question_facts[category][current_fact.text.lower()] = data
       print(data)
     except Exception as e:
       print("### ERROR: There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + title)

@@ -25,7 +25,7 @@ def file_prefix(topic, section):
 
 def get_answer_category(answer, facts_metadata):
   for category in facts_metadata:
-    if answer in facts_metadata[category]:
+    if answer.lower() in facts_metadata[category]:
       return category
 
 def get_valid_categories(facts_metadata):
@@ -95,13 +95,12 @@ def get_question_and_answers(topic = None, section = None):
   answers = [answer]
 
   while len(answers) < NUMBER_OF_ANSWERS:
-    possible_answer = random.choice(list(facts_metadata[category]))
-    possible_answer_data = facts_metadata[category][possible_answer]
+    possible_answer_data = facts_metadata[category][random.choice(list(facts_metadata[category]))]
     if possible_answer_data["confidence"] < CONFIDENCE_LEVEL:
       continue
 
-    if not possible_answer in answers:
-      answers.append(possible_answer)
+    if not possible_answer_data["fact"] in answers:
+      answers.append(possible_answer_data["fact"])
 
   question.select("a")[int(answer_fact_number)].replace_with("_________________")
 
