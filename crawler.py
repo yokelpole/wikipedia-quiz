@@ -42,77 +42,50 @@ def get_facts_and_metadata_from_html(html, topic, section):
   tfidfconverter.fit_transform(X)
 
   html_facts = get_html_facts(html, section)
-  fact_links = {}
-  fulltext_metadata = []
+  question_facts = {}
 
-  for base_index, facts in enumerate(html_facts):
-    current_set = []
-    for current_fact in facts:
-      # FIXME: Is there a better way to duck type this?
-      if not hasattr(current_fact, "select"):
-        continue
+  for current_fact in html_facts:
+    try:
+      title = current_fact.get("title") 
+      summary = wikipedia.summary(title, sentences = 3, auto_suggest=False)
 
-      if current_fact.get("title", False):
-        title = current_fact.get("title")
-      else:
-        if len(current_fact.select("a[title]")) == 0:
-          continue
+      # Transform the string data into machine learning friendly format
+      new_X = vectorizer.transform(lemmatizer([summary])).toarray()
+      new_X = tfidfconverter.transform(new_X).toarray()
+      results = classifier.predict(new_X)
+      category = classifier_data.target_names[results[0]]
+      confidence = classifier.predict_proba(new_X)[0][results[0]]
 
-        title = current_fact.select("a[title]")[0].get("title") 
+      # TODO: Boot out answers that have too low of a confidence score?
+      # Or save them into the set metadata and let the quiz deal with it.
+      fact_data_file = open("./unsorted_data/" + category + "/" + title + "_fact_data.txt", "w")
+      fact_data_file.truncate(0)
+      fact_data_file.write(summary)
 
-      try:
-        print("### CURRENT FACT:")
-        print(current_fact)
+      data = {
+        "fact": current_fact.text,
+        "summary": summary,
+        "category": category,
+        "confidence": confidence,
+      }
 
-        title = current_fact.get("title") or current_fact.find_all(title=True)[0]["title"]
-        print(title)
-        print("### TITLE: " + title)
-        summary = wikipedia.summary(title, sentences = 3, auto_suggest=False)
-
-        # Transform the string data into machine learning friendly format
-        new_X = vectorizer.transform(lemmatizer([summary])).toarray()
-        new_X = tfidfconverter.transform(new_X).toarray()
-        results = classifier.predict(new_X)
-        category = classifier_data.target_names[results[0]]
-        confidence = classifier.predict_proba(new_X)[0][results[0]]
-
-        current_set.append({
-          "fact": current_fact.text,
-          "summary": summary,
-          "category": category,
-          "confidence": confidence,
-        })
-        print(current_set[len(current_set)-1])
-
-        # TODO: Boot out answers that have too low of a confidence score?
-        # Or save them into the set metadata and let the quiz deal with it.
-        fact_data_file = open("./unsorted_data/" + category + "/" + title + "_fact_data.txt", "w")
-        fact_data_file.truncate(0)
-        fact_data_file.write(summary)
-        if category not in fact_links:
-          fact_links[category] = []
-        fact_links[category].append((base_index, len(current_set)-1))
-      except Exception as e:
-        current_set.append(False)
-        print("### ERROR: There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + title)
-        print(current_fact)
-        print(e)
-        print(type(e))
-        print(e.args)
-
-    fulltext_metadata.append(current_set)
-
-  fact_links_file = open("quiz_content/" + topic + "_" + section + "_fact_links.json", "w")
-  fact_links_file.truncate(0)
-  fact_links_file.write(json.dumps(fact_links))
-  fact_links_file.close()
+      if category not in question_facts:
+        question_facts[category] = {}
+      question_facts[category][current_fact.text] = data
+      print(data)
+    except Exception as e:
+      print("### ERROR: There was an error with retrieving from wikipedia for " + current_fact.text, " aka " + title)
+      print(current_fact)
+      print(e)
+      print(type(e))
+      print(e.args)
 
   fulltext_metadata_file = open("quiz_content/" + topic + "_" + section + "_fulltext_metadata.json", "w")
   fulltext_metadata_file.truncate(0)
   fulltext_metadata_file.write(json.dumps({
     "topic": topic,
     "section": section, 
-    "facts": fulltext_metadata
+    "facts": question_facts
   }))
   fulltext_metadata_file.close()
 

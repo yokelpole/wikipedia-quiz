@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from shared import get_html_facts
+from shared import get_html_questions
 import asyncio
 import random
 import json
@@ -23,20 +23,24 @@ def data_files_exist_and_have_data(topic, section):
 def file_prefix(topic, section):
   return "quiz_content/" + topic + "_" + section
 
-def get_valid_categories(facts, facts_metadata):
+def get_answer_category(answer, facts_metadata):
+  for category in facts_metadata:
+    if answer in facts_metadata[category]:
+      return category
+
+def get_valid_categories(facts_metadata):
   category_count = {}
 
-  for answer_list in facts_metadata:
-    for answer in answer_list:
-      if answer == False:
-        continue      
-      if answer["confidence"] < CONFIDENCE_LEVEL:
+  for category in facts_metadata:
+    for fact in facts_metadata[category]:
+      value = facts_metadata[category][fact]
+      if value["confidence"] < CONFIDENCE_LEVEL:
         continue
 
-      if not answer["category"] in category_count:
-        category_count[answer["category"]] = 1
+      if not category in category_count:
+        category_count[category] = 1
       else:
-        category_count[answer["category"]] += 1 
+        category_count[category] += 1 
 
   valid_categories = []
   for category, count in category_count.items():
@@ -66,52 +70,34 @@ def get_question_and_answers(topic = None, section = None):
     fulltext_metadata = json.loads(open(file_prefix(topic, section) + "_fulltext_metadata.json", "r").read())
  
   html = BeautifulSoup(open("quiz_content/" + topic + "_page.html", "r").read(), "html.parser")
-  html_facts = get_html_facts(html, section)
-  fact_links = json.loads(open(file_prefix(topic,section) + "_fact_links.json", "r").read())
+  html_questions = get_html_questions(html, section)
   facts_metadata = fulltext_metadata["facts"]
-  valid_categories = get_valid_categories(html_facts, facts_metadata)
+  valid_categories = get_valid_categories(facts_metadata)
     
   if len(valid_categories) == 0:
     print("### Not enough valid categories for this topic/section: " + topic + " " + section)
     return
 
-  # Ensure that the answer exists in the questions - when the lookup fails
-  # there's the possibility of a link not containing a fact
   is_valid_fact = False
   while not is_valid_fact:
-    question_number = random.randint(0, len(html_facts)-1)
-    question = html_facts[question_number]
-    if len(question.select("a[title]")) == 0:
-      continue
+    question_number = random.randint(0, len(html_questions)-1)
+    question = html_questions[question_number]
 
     answer_fact_number = random.randint(0, len(question.select("a[title]"))-1)
-    # This is a hack to get around when certain answers have been dropped.
-    if answer_fact_number >= len(facts_metadata[question_number]):
-      answer_fact_number = len(facts_metadata[question_number]) - 1 
+    answer = question.select("a[title]")[answer_fact_number]["title"]
+    category = get_answer_category(answer, facts_metadata)
 
-    fact_metadata = facts_metadata[question_number][answer_fact_number]
-
-    if int(answer_fact_number) >= len(facts_metadata[question_number]):
-      continue
-
-    if fact_metadata == False:
-      continue
-
-    if fact_metadata["category"] in INVALID_CATEGORIES or fact_metadata["category"] not in valid_categories:
+    if category in INVALID_CATEGORIES or category not in valid_categories:
       continue
 
     is_valid_fact = True
   
-  answer_fact_category = fact_metadata["category"]
-  answer_dictionary = facts_metadata[question_number][answer_fact_number]
-  answers = [answer_dictionary["fact"]]
+  answers = [answer]
 
-  while len(answers) < NUMBER_OF_ANSWERS or len(answers) == len(fact_links[answer_fact_category]) - 1:
-    location = random.choice(fact_links[answer_fact_category])
-    fact_metadata = facts_metadata[location[0]][int(location[1])]
-    possible_answer = fact_metadata["fact"]
-
-    if fact_metadata["confidence"] < CONFIDENCE_LEVEL:
+  while len(answers) < NUMBER_OF_ANSWERS:
+    possible_answer = random.choice(list(facts_metadata[category]))
+    possible_answer_data = facts_metadata[category][possible_answer]
+    if possible_answer_data["confidence"] < CONFIDENCE_LEVEL:
       continue
 
     if not possible_answer in answers:
@@ -123,7 +109,7 @@ def get_question_and_answers(topic = None, section = None):
 
   return {
     "answers": answers,
-    "correct_answer": answer_dictionary["fact"],
+    "correct_answer": answer,
     "topic": topic,
     "section": section,
     "question": question.text

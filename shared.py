@@ -1,6 +1,26 @@
 from nltk.stem import WordNetLemmatizer
 import re
 
+def get_html_questions(html, start_header_text):
+   # On the music summary pages this will grab the "events"
+  # that happened for a given year.
+  elements = []
+  element = html.select("h2>span[id='" + start_header_text + "']")[0].parent
+  
+  # Only rip data between the two <h2>s
+  cut_off_element = element.find_next("h2")
+
+  while element != cut_off_element:
+    if hasattr(element, "select") == False:
+      element = element.next_element
+      continue
+    # FIXME: This does not work properly - needs to return proper li items
+    if element.select("li") and not element.select("li ul"):
+      elements.extend(element.select("li"))
+    element = element.next_element
+
+  return elements 
+
 def get_html_facts(html, start_header_text):
   # On the music summary pages this will grab the "events"
   # that happened for a given year.
@@ -14,13 +34,12 @@ def get_html_facts(html, start_header_text):
     if hasattr(element, "select") == False:
       element = element.next_element
       continue
-    if element.select("li") and not element.select("li li"):
-      elements.extend(element.select("li"))
+    # Do we really need the <li>? 
+    if element.select("li a[title]"):
+      elements.extend(element.select("li a[title]"))
     element = element.next_element
 
-  # Ensure that we have more than one anchor element - anything with less is
-  # unlikely to be a quizzable fact.
-  return list(filter(lambda x: len(x.select("a")), elements))
+  return elements
 
 def lemmatizer(X):
     stemmer = WordNetLemmatizer()
