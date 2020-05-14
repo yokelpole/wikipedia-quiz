@@ -14,9 +14,14 @@ def get_html_questions(html, start_header_text):
     if hasattr(element, "select") == False:
       element = element.next_element
       continue
-    # FIXME: This does not work properly - needs to return proper li items
-    if element.select("li") and not element.select("li ul"):
-      elements.extend(element.select("li"))
+
+    for current_element in element.select("li"):
+      # FIXME: This should probably be recursive to super nested lists.
+      if current_element.select("ul li"):
+        elements.extend(current_element.select("li"))
+      else:
+        elements.append(current_element)
+        
     element = element.next_element
 
   return elements 
