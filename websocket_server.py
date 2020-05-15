@@ -10,7 +10,8 @@ import asyncio
 
 HOSTNAME = "localhost"
 PORT = 8100
-QUESTION_TIME = 15
+QUESTION_TIME = 20
+WAIT_TIME = 10
 
 active_users = {} 
 connected = set()
@@ -50,6 +51,11 @@ async def update_question(websocket, path):
     microseconds_delta = active_question_finish_delta.microseconds
     await asyncio.sleep(seconds_delta + (microseconds_delta/1000000))
   if datetime.datetime.utcnow() > active_question_finish_time:
+    await send_to_clients(json.dumps({
+      "type": "correct_answer",
+      "value": active_question["correct_answer"]
+    }))
+    await asyncio.sleep(WAIT_TIME)
     active_question = get_question_and_answers()
     active_question_finish_time = get_new_active_question_finish_time()
     for _, value in active_users.items():
@@ -65,10 +71,6 @@ async def update_leaderboard():
     "value": active_users,
   }))
 
-async def answer_question(websocket, path):
-  print("### DO QUESTION STUFF HERE")
-
-
 async def consumer_handler(websocket, path):
   global active_users
 
@@ -77,6 +79,7 @@ async def consumer_handler(websocket, path):
   # TODO: Handle when player answers a question
   if recv_data["type"] == "register_player":
     player_id = str(uuid.uuid4())
+    websocket.player_id = player_id
     active_users[player_id] = {
       "name": recv_data["value"]["name"],
       "score": 0,
@@ -110,10 +113,6 @@ async def consumer_handler(websocket, path):
 
     await update_leaderboard()
 
-async def producer_handler(websocket, path):
-  print("### PRODUCER STUFF HERE")
-
-
 async def connection_loop(websocket, path):
   connected.add(websocket)
 
@@ -122,7 +121,6 @@ async def connection_loop(websocket, path):
     while True and websocket.open:
       question_update_task = asyncio.ensure_future(update_question(websocket, path))
       consumer_task = asyncio.ensure_future(consumer_handler(websocket, path))
-      # producer_task = asyncio.ensure_future(producer_handler(websocket, path))
       _, pending = await asyncio.wait(
         [ 
           question_update_task,
@@ -134,7 +132,8 @@ async def connection_loop(websocket, path):
         task.cancel()
   finally:
     connected.remove(websocket)
-    # TODO: Drop user from scoreboard and send update to users
+    active_users.pop(websocket.player_id, None)
+    await update_leaderboard()
 
 active_question = get_question_and_answers()
 active_question_finish_time = get_new_active_question_finish_time()
