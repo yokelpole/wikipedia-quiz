@@ -8,7 +8,7 @@ import json
 import websockets
 import asyncio
 
-HOSTNAME = "localhost"
+HOSTNAME = "192.168.0.116"
 PORT = 8100
 QUESTION_TIME = 20
 WAIT_TIME = 10
@@ -117,6 +117,10 @@ async def connection_loop(websocket, path):
   connected.add(websocket)
 
   try: 
+    await websocket.send(json.dumps({
+      "type": "server_time",
+      "value": datetime.datetime.utcnow().isoformat(),
+    }))
     await websocket.send(get_active_question_message())
     while True and websocket.open:
       question_update_task = asyncio.ensure_future(update_question(websocket, path))
