@@ -2,7 +2,7 @@ A Python framework for generating quizzes based off of lists in Wikipedia articl
 
 # Installing:
 - Clone this repo
-- Install `BeautifulSoup4`, `sklearn`, `nltk` via `pip3`.
+- Install `BeautifulSoup4`, `sklearn`, `nltk` via `pip3`. (There are a few more dependencies that I haven't listed here - you'll have to install them as you attempt to run the scripts, sorry!)
 - Use the tools below
 
 # Tools:
@@ -25,3 +25,8 @@ Provides a way to test the question and answer functionality in the terminal. A 
 
 *Usage:* `python3 quiz.py`
 *Example:* `python3 quiz.py "2004 in music" "Popular_songs"`
+
+## websocket_server.py
+Used to serve and keep track of game state for the [wikipedia-quiz-client](https://github.com/yokelpole/wikipedia-quiz-client).
+
+*Usage:* `python3 websocket_server.py`
