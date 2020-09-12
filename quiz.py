@@ -40,7 +40,7 @@ def get_valid_categories(facts_metadata):
       if not category in category_count:
         category_count[category] = 1
       else:
-        category_count[category] += 1 
+        category_count[category] += 1
 
   valid_categories = []
   for category, count in category_count.items():
@@ -62,18 +62,18 @@ def get_question_and_answers(topic = None, section = None):
     section = fulltext_metadata["section"]
   else:
     if not os.path.exists("quiz_content/" + topic + "_page.html") and os.stat("quiz_content/" + topic + "_page.html"):
-      print ("### Quiz data not found - use crawler.py to generate data")    
+      print ("### Quiz data not found - use crawler.py to generate data")
       return
     if not data_files_exist_and_have_data(topic, section):
       print("### Quiz data not found - use crawler.py to generate data")
       return
     fulltext_metadata = json.loads(open(file_prefix(topic, section) + "_fulltext_metadata.json", "r").read())
- 
+
   html = BeautifulSoup(open("quiz_content/" + topic + "_page.html", "r").read(), "html.parser")
   html_questions = get_html_questions(html, section)
   facts_metadata = fulltext_metadata["facts"]
   valid_categories = get_valid_categories(facts_metadata)
-    
+
   if len(valid_categories) == 0:
     print("### Not enough valid categories for this topic/section: " + topic + " " + section)
     return
@@ -91,7 +91,7 @@ def get_question_and_answers(topic = None, section = None):
       continue
 
     is_valid_fact = True
-  
+
   answers = [answer]
 
   while len(answers) < NUMBER_OF_ANSWERS:
@@ -133,7 +133,7 @@ def ask_question(topic = None, section = None):
   # FIXME: Make this work with NUMBER_OF_ANSWERS
   while user_answer != "1" and user_answer != "2" and user_answer != "3" and user_answer != "4":
     user_answer = input("[1,2,3, or 4]: ").lower()
-  
+
   if answers[int(user_answer)-1] == correct_answer:
     print("Correct! 🙋\n\n")
     return True
@@ -142,7 +142,7 @@ def ask_question(topic = None, section = None):
     print("The correct answer is: " + correct_answer + "\n\n")
     return False
 
-if __name__ == "__main__":        
+if __name__ == "__main__":
   asked = 0
   correct = 0
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     while asked < 5:
       if ask_question():
         correct += 1
-      asked += 1 
+      asked += 1
     print("You got " + str(correct) + " questions right.")
 
   print("### GAME OVER")

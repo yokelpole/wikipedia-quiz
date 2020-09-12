@@ -7,13 +7,15 @@ import uuid
 import json
 import websockets
 import asyncio
+import ssl
+import os
 
-HOSTNAME = "192.168.0.116"
-PORT = 8100
+HOSTNAME = "192.168.0.116" if "LOCAL" in os.environ else "kylepoole.me"
+PORT = 8080
 QUESTION_TIME = 20
 WAIT_TIME = 10
 
-active_users = {} 
+active_users = {}
 connected = set()
 active_question = None
 active_question_finish_time = None
@@ -40,7 +42,7 @@ def get_active_question_message():
 async def send_to_clients(message):
   return await asyncio.wait(
     [connection.send(message) for connection in connected]
-  ) 
+  )
 
 
 async def update_question(websocket, path):
@@ -50,13 +52,15 @@ async def update_question(websocket, path):
     seconds_delta = active_question_finish_delta.seconds
     microseconds_delta = active_question_finish_delta.microseconds
     await asyncio.sleep(seconds_delta + (microseconds_delta/1000000))
-  if datetime.datetime.utcnow() > active_question_finish_time:
+  if datetime.datetime.utcnow() > active_question_finish_time and active_question:
     await send_to_clients(json.dumps({
       "type": "correct_answer",
       "value": active_question["correct_answer"]
     }))
     await asyncio.sleep(WAIT_TIME)
-    active_question = get_question_and_answers()
+    active_question = None
+    while not active_question:
+      active_question = get_question_and_answers()
     active_question_finish_time = get_new_active_question_finish_time()
     for _, value in active_users.items():
       value["answered_correctly"] = None
@@ -66,6 +70,9 @@ async def update_question(websocket, path):
 
 async def update_leaderboard():
   global active_users
+  if len(active_users) == 0:
+    return
+
   return await send_to_clients(json.dumps({
     "type": "leaderboard_updated",
     "value": active_users,
@@ -85,7 +92,7 @@ async def consumer_handler(websocket, path):
       "score": 0,
       "answered_correctly": None,
     }
-    
+
     await send_to_clients(json.dumps({
       "type": "player_registered",
       "value": {
@@ -106,7 +113,7 @@ async def consumer_handler(websocket, path):
     targeted_user = active_users[recv_data["value"]["player_id"]]
 
     if active_question["correct_answer"] == recv_data["value"]["answer"]:
-      targeted_user["score"] = targeted_user["score"] + 1 
+      targeted_user["score"] = targeted_user["score"] + 1
       targeted_user["answered_correctly"] = True
     else:
       targeted_user["answered_correctly"] = False
@@ -116,7 +123,7 @@ async def consumer_handler(websocket, path):
 async def connection_loop(websocket, path):
   connected.add(websocket)
 
-  try: 
+  try:
     await websocket.send(json.dumps({
       "type": "server_time",
       "value": datetime.datetime.utcnow().isoformat(),
@@ -126,7 +133,7 @@ async def connection_loop(websocket, path):
       question_update_task = asyncio.ensure_future(update_question(websocket, path))
       consumer_task = asyncio.ensure_future(consumer_handler(websocket, path))
       _, pending = await asyncio.wait(
-        [ 
+        [
           question_update_task,
           consumer_task,
         ],
@@ -136,12 +143,18 @@ async def connection_loop(websocket, path):
         task.cancel()
   finally:
     connected.remove(websocket)
-    active_users.pop(websocket.player_id, None)
+    if hasattr(websocket, 'player_id'):
+      active_users.pop(websocket.player_id, None)
     await update_leaderboard()
 
 active_question = get_question_and_answers()
 active_question_finish_time = get_new_active_question_finish_time()
-start_server = websockets.serve(connection_loop, HOSTNAME, PORT)
+if "LOCAL" not in os.environ:
+  ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+  ssl_context.load_cert_chain('cert_location', 'private_key_location')
+  start_server = websockets.serve(connection_loop, HOSTNAME, PORT, ssl=ssl_context)
+else:
+  start_server = websockets.serve(connection_loop, HOSTNAME, PORT)
 
 asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()
