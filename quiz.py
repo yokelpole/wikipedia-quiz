@@ -86,6 +86,9 @@ def get_question_and_answers(topic = None, section = None):
     question_number = random.randint(0, len(html_questions)-1)
     question = html_questions[question_number]
 
+    if question.select("a[title]") == []:
+      continue
+
     answer_fact_number = random.randint(0, len(question.select("a[title]"))-1)
     answer = question.select("a[title]")[answer_fact_number]["title"]
     category = get_answer_category(answer, facts_metadata)
