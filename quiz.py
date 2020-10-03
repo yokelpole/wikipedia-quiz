@@ -69,6 +69,9 @@ def get_question_and_answers(topic = None, section = None):
       return
     fulltext_metadata = json.loads(open(file_prefix(topic, section) + "_fulltext_metadata.json", "r").read())
 
+  if topic == None or section == None:
+    get_question_and_answers()
+
   html = BeautifulSoup(open("quiz_content/" + topic + "_page.html", "r").read(), "html.parser")
   html_questions = get_html_questions(html, section)
   facts_metadata = fulltext_metadata["facts"]
