@@ -10,7 +10,7 @@ import asyncio
 import ssl
 import os
 
-HOSTNAME = "192.168.0.116" if "LOCAL" in os.environ else "kylepoole.me"
+HOSTNAME = "127.0.0.1" if "LOCAL" in os.environ else "kylepoole.me"
 PORT = 8080
 QUESTION_TIME = 20
 WAIT_TIME = 10
@@ -47,11 +47,6 @@ async def send_to_clients(message):
 
 async def update_question(websocket, path):
   global active_question, active_question_finish_time, active_users
-  active_question_finish_delta = active_question_finish_time - datetime.datetime.utcnow()
-  if active_question_finish_delta.days != -1:
-    seconds_delta = active_question_finish_delta.seconds
-    microseconds_delta = active_question_finish_delta.microseconds
-    await asyncio.sleep(seconds_delta + (microseconds_delta/1000000))
   if datetime.datetime.utcnow() > active_question_finish_time and active_question:
     await send_to_clients(json.dumps({
       "type": "correct_answer",
@@ -66,6 +61,8 @@ async def update_question(websocket, path):
       value["answered_correctly"] = None
     await send_to_clients(get_active_question_message())
     await update_leaderboard()
+  else:
+    await asyncio.sleep(0.1)
 
 
 async def update_leaderboard():
